@@ -30,6 +30,7 @@ import type Database from 'better-sqlite3';
 import fs from 'fs';
 
 import { ensureEgressNetwork } from './egress-lockdown.js';
+import { readEnvFile } from './env.js';
 import { getActiveSessions } from './db/sessions.js';
 import { getAgentGroup } from './db/agent-groups.js';
 import {
@@ -63,7 +64,14 @@ const SWEEP_INTERVAL_MS = 60_000;
 // Absolute idle ceiling for a running container. If the heartbeat file hasn't
 // been touched in this long, the container is either stuck or doing genuinely
 // nothing — kill and restart on the next inbound.
-export const ABSOLUTE_CEILING_MS = 30 * 60 * 1000;
+// CHILLX customization — upstream PR candidate: configurable idle ceiling.
+// NANOCLAW_IDLE_CEILING_MS (integer ms) overrides via env or .env; default 30 min.
+const idleCeilingRaw =
+  process.env.NANOCLAW_IDLE_CEILING_MS || readEnvFile(['NANOCLAW_IDLE_CEILING_MS']).NANOCLAW_IDLE_CEILING_MS;
+export const ABSOLUTE_CEILING_MS =
+  idleCeilingRaw && Number.isInteger(Number(idleCeilingRaw)) && Number(idleCeilingRaw) > 0
+    ? Number(idleCeilingRaw)
+    : 30 * 60 * 1000;
 // Stuck tolerance window applied per 'processing' claim — "did we see any
 // signs of life since this message was claimed?"
 export const CLAIM_STUCK_MS = 60 * 1000;

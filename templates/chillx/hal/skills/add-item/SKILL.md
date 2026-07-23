@@ -9,6 +9,8 @@ Create a new Item in ERPNext with consistent defaults, supplier details, and buy
 
 **Environment (v2 container):** `source /workspace/agent/.chillx-env` before the curl calls below. `ERPNEXT_API_KEY`/`ERPNEXT_API_SECRET` are placeholders — the gateway injects the real Authorization header at request time.
 
+**Data-access doctrine (Phase B.1):** the gateway-injected ERPNext credential is **READ-ONLY** (erp-read) — direct POSTs to ERPNext return 403 by design. Reference lookups: query the **data mirror first** (`bun /home/node/.claude/skills/chillx-scripts/scripts/mirror-query.mjs`, tables `items` / `item_prices`, hourly-fresh); use live GETs only when freshness matters, and say which source you used. **Creation goes through erp-svc** (`POST http://host.docker.internal:8010/item`, bypass the proxy with `curl --noproxy '*'`), which holds the scoped write credential and audit-logs the request.
+
 ## Workflow
 
 ### 1. Gather information from the user
@@ -24,7 +26,15 @@ Optional (have good defaults):
 
 ### 2. Find similar items for reference
 
-Before creating anything, search ERPNext for similar items. Use the brand, item group, or keywords from the item name:
+Before creating anything, search for similar items. **Mirror first** (fast, fresh-within-an-hour):
+
+```bash
+MQ=/home/node/.claude/skills/chillx-scripts/scripts/mirror-query.mjs
+bun $MQ "SELECT name, item_name, item_group, brand FROM items WHERE item_name LIKE '%SEARCH_TERM%' LIMIT 10"
+bun $MQ "SELECT item_code, price_list, price_list_rate, currency FROM item_prices WHERE item_code='REFERENCE_CODE'"
+```
+
+Live ERPNext read (only if the mirror is too stale for the question):
 
 ```bash
 source /workspace/agent/.chillx-env; curl -s -H "Authorization: token ${ERPNEXT_API_KEY}:${ERPNEXT_API_SECRET}" \
@@ -80,21 +90,24 @@ Before creating, display a summary table:
 
 Ask for confirmation before proceeding. If the user provided all details up front and expressed confidence, a brief confirmation is sufficient.
 
-### 5. Create the Item
+### 5. Create the Item + Item Prices (ONE erp-svc call)
+
+Creation goes through the erp-svc capability container — NOT directly to
+ERPNext (the agent's ERP credential is read-only; a direct POST 403s).
 
 ```bash
-source /workspace/agent/.chillx-env; curl -s -X POST \
-  -H "Authorization: token ${ERPNEXT_API_KEY}:${ERPNEXT_API_SECRET}" \
-  -H "Content-Type: application/json" \
-  "${ERPNEXT_URL}/api/resource/Item" \
-  -d 'JSON_PAYLOAD'
+curl -s --noproxy '*' -X POST -H "Content-Type: application/json" -H "X-Caller: hal-agent/add-item" \
+  http://host.docker.internal:8010/item \
+  -d '{"item": ITEM_JSON, "prices": [
+        {"price_list": "Standard Buying",  "price_list_rate": BUY_PRICE,  "currency": "USD"},
+        {"price_list": "Standard Selling", "price_list_rate": SELL_PRICE, "currency": "USD"}
+      ]}'
 ```
 
-Item JSON structure:
+`ITEM_JSON` structure (same field conventions as before):
 
 ```json
 {
-  "doctype": "Item",
   "item_code": "PART-NUMBER",
   "item_name": "Brand - Series/Line - Key Specs",
   "item_group": "GROUP",
@@ -138,41 +151,7 @@ Item JSON structure:
 }
 ```
 
-### 6. Create Item Prices
-
-Create both buying and selling prices:
-
-**Standard Buying:**
-```bash
-source /workspace/agent/.chillx-env; curl -s -X POST \
-  -H "Authorization: token ${ERPNEXT_API_KEY}:${ERPNEXT_API_SECRET}" \
-  -H "Content-Type: application/json" \
-  "${ERPNEXT_URL}/api/resource/Item%20Price" \
-  -d '{
-    "doctype": "Item Price",
-    "item_code": "PART-NUMBER",
-    "price_list": "Standard Buying",
-    "price_list_rate": BUY_PRICE,
-    "currency": "USD"
-  }'
-```
-
-**Standard Selling:**
-```bash
-source /workspace/agent/.chillx-env; curl -s -X POST \
-  -H "Authorization: token ${ERPNEXT_API_KEY}:${ERPNEXT_API_SECRET}" \
-  -H "Content-Type: application/json" \
-  "${ERPNEXT_URL}/api/resource/Item%20Price" \
-  -d '{
-    "doctype": "Item Price",
-    "item_code": "PART-NUMBER",
-    "price_list": "Standard Selling",
-    "price_list_rate": SELL_PRICE,
-    "currency": "USD"
-  }'
-```
-
-### 7. Confirm
+### 6. Confirm
 
 After all three documents are created, display a summary:
 

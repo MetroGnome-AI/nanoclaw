@@ -24,10 +24,48 @@
  *   node scripts/lead.mjs ... --dry-run                                       # preview, no write
  */
 import { readFileSync } from 'node:fs';
-import { erpPost, erpPut, getList, getDoc, callMethod, addComment } from './lib/shipping/erp.mjs';
+import http from 'node:http';
+import { getList } from './lib/shipping/erp.mjs';
 // phoneDigits = the digit match key (dedupe). formatPhone = XXX-XXX-XXXX for
 // stored/display values. Shared with the receptionist + Drupal import paths.
 import { phoneDigits as normalizePhone, formatPhone } from './lib/phone.mjs';
+
+// ── erp-svc capability service (Phase B.1) ───────────────────────────────────
+// WRITES no longer talk to ERPNext directly: the agent's gateway credential is
+// read-only (erp-read). Creates/enriches/tags/comments go through erp-svc,
+// which holds the source-scoped erp-sales user and audit-logs every request.
+// The container sets NODE_USE_ENV_PROXY, which makes even node:http honor
+// HTTP_PROXY (UNDICI EnvHttpProxyAgent) — so we pass an EXPLICIT plain Agent
+// to guarantee this local call never loops through the OneCLI gateway.
+const ERP_SVC_URL = process.env.ERP_SVC_URL || 'http://host.docker.internal:8010';
+const DIRECT_AGENT = new http.Agent();
+function svcPost(path, payload) {
+  return new Promise((resolve, reject) => {
+    const u = new URL(path, ERP_SVC_URL);
+    const body = JSON.stringify(payload);
+    const req = http.request(u, {
+      method: 'POST',
+      agent: DIRECT_AGENT,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+        'X-Caller': 'hal-agent/lead.mjs',
+      },
+      timeout: 30000,
+    }, (res) => {
+      let text = '';
+      res.on('data', (c) => { text += c; });
+      res.on('end', () => {
+        let data; try { data = JSON.parse(text); } catch { data = { error: text.slice(0, 300) }; }
+        if (res.statusCode !== 200) reject(new Error(`erp-svc ${path} -> ${res.statusCode}: ${data.error || text.slice(0, 200)}`));
+        else resolve(data);
+      });
+    });
+    req.on('timeout', () => { req.destroy(new Error('erp-svc timeout')); });
+    req.on('error', (e) => reject(new Error(`erp-svc unreachable (${e.message}) — is the capability container up? (docker compose in services/erp-svc on the host)`)));
+    req.end(body);
+  });
+}
 
 // v2 container: env file lives in the agent group workspace (machine-local, not in git).
 let _envText = '';
@@ -114,13 +152,7 @@ async function contactWarning({ phone, email }) {
   } catch { return null; }
 }
 
-async function applyTags(name, tags) {
-  const applied = [];
-  for (const tag of tags) {
-    try { await callMethod('frappe.desk.doctype.tag.tag.add_tag', { dt: 'Lead', dn: name, tag }); applied.push(tag); } catch {}
-  }
-  return applied;
-}
+// Tags + audit comments are applied by erp-svc as part of the /lead call.
 
 async function main() {
   const args = parseArgs(process.argv);
@@ -161,11 +193,16 @@ async function main() {
     console.log(`[lead] tags to add: ${tags.length ? tags.join(', ') : '(none)'}`);
     if (dryRun) { console.log('[lead] DRY RUN — no write.'); return; }
 
-    if (Object.keys(patch).length) await erpPut(`/api/resource/Lead/${encodeURIComponent(existing.name)}`, patch);
-    const applied = await applyTags(existing.name, tags);
     const noteBits = [interest ? `Interest: ${interest}` : null, args.notes && args.notes !== true ? args.notes : null, args.source && args.source !== true ? `Source: ${args.source}` : null].filter(Boolean);
-    if (noteBits.length) await addComment('Lead', existing.name, `<div><b>Lead enriched (lead skill)</b><br>${noteBits.join('<br>')}</div>`);
-    console.log(`✓ enriched ${existing.name}${Object.keys(patch).length ? ` | patched ${Object.keys(patch).join(',')}` : ''}${applied.length ? ` | tags +${applied.join(',')}` : ''}`);
+    const svc = await svcPost('/lead', {
+      action: 'enrich',
+      name: existing.name,
+      fields: patch,
+      tags,
+      ...(noteBits.length ? { comment: `<div><b>Lead enriched (lead skill)</b><br>${noteBits.join('<br>')}</div>` } : {}),
+    });
+    const applied = svc.appliedTags || [];
+    console.log(`✓ enriched ${existing.name} via erp-svc${Object.keys(patch).length ? ` | patched ${Object.keys(patch).join(',')}` : ''}${applied.length ? ` | tags +${applied.join(',')}` : ''}${svc.commentError ? ` | ⚠ ${svc.commentError}` : ''}`);
     return;
   }
 
@@ -197,12 +234,17 @@ async function main() {
   if (custWarn) console.log(`[lead] ⚠ a Contact already exists for this phone/email (${custWarn}) — may be an existing customer. Creating Lead anyway.`);
   if (dryRun) { console.log('[lead] DRY RUN — no write.'); return; }
 
-  const created = await erpPost('/api/resource/Lead', body);
-  const name = created.data.name;
-  const applied = await applyTags(name, tags);
+  const { doctype: _omit, ...fields } = body;
   const noteBits = [interest ? `Interest: ${interest}` : null, args.notes && args.notes !== true ? args.notes : null].filter(Boolean);
-  await addComment('Lead', name, `<div><b>Lead created (lead skill)</b> ${new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' })} CDT${args.source && args.source !== true ? ` · source ${args.source}` : ''}${custWarn ? ` · ⚠ existing Contact ${custWarn}` : ''}${noteBits.length ? `<br>${noteBits.join('<br>')}` : ''}</div>`);
-  console.log(`✓ created ${name} (${body.lead_name})${applied.length ? ` | tags +${applied.join(',')}` : ''}`);
+  const svc = await svcPost('/lead', {
+    action: 'create',
+    fields,
+    tags,
+    comment: `<div><b>Lead created (lead skill)</b> ${new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' })} CDT${args.source && args.source !== true ? ` · source ${args.source}` : ''}${custWarn ? ` · ⚠ existing Contact ${custWarn}` : ''}${noteBits.length ? `<br>${noteBits.join('<br>')}` : ''}</div>`,
+  });
+  const name = svc.name;
+  const applied = svc.appliedTags || [];
+  console.log(`✓ created ${name} (${body.lead_name}) via erp-svc${applied.length ? ` | tags +${applied.join(',')}` : ''}${svc.commentError ? ` | ⚠ ${svc.commentError}` : ''}`);
 }
 
 main().catch((e) => { console.error(`\n✗ lead FAILED: ${e.message}`); process.exit(1); });

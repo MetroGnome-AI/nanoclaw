@@ -41,5 +41,5 @@ ask to the right invocation.
 
 ## Composes with
 
-- `chillx-scripts/scripts/lead.mjs` — the orchestrator (ERPNext access via `lib/shipping/erp.mjs`; env from `/workspace/agent/.chillx-env`, auth injected by the gateway)
+- `chillx-scripts/scripts/lead.mjs` — the orchestrator. READS (dedup lookups) use the gateway-injected ERPNext credential, which is READ-ONLY (erp-read). WRITES (create/enrich/tags/comment) go through the erp-svc capability container at `http://host.docker.internal:8010` — the script needs NO ERPNext write credential. If erp-svc is down the script fails loudly; report that to Rob rather than trying to write ERPNext directly (direct writes 403 by design).
 - `chillx-scripts/scripts/lib/phone.mjs` — phone normalization shared with dedup

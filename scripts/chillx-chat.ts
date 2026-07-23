@@ -15,7 +15,7 @@ import path from 'path';
 
 import { DATA_DIR } from '../src/config.js';
 
-const SILENCE_MS = 25000; // CHILLX: HAL does real tool work between messages — wait out the quiet (was 2000)
+const SILENCE_MS = 12000; // CHILLX: covers observed 8s tool-gaps without the 25s terminal hold
 const TOTAL_TIMEOUT_MS = 120_000; // hard stop
 
 function socketPath(): string {

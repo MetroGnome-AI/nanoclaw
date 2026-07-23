@@ -18,6 +18,7 @@ scripts/
 ├── docs.mjs                  # docs skill orchestrator
 ├── quote.mjs                 # quote skill orchestrator
 ├── mirror-query.mjs          # data-mirror SQL query tool (RUN WITH BUN)
+├── call-me.mjs               # Voice-HAL: ask the PBX to call the owner (token-gated, allowlist-bound)
 └── lib/
     ├── phone.mjs             # phone normalization (shared with lead dedup)
     ├── intro/run-log.mjs     # append-only run log (~/.claude/projects/.../intro/)

@@ -1,0 +1,17 @@
+# Upstream nanocoai/nanoclaw public-history findings (not ours) — fingerprinted 2026-07-22
+2242f6c997a3f2bdfa2b33aceb5aa264a9be8053:setup/channels/run-channel-skill.test.ts:generic-api-key:50
+2242f6c997a3f2bdfa2b33aceb5aa264a9be8053:setup/channels/run-channel-skill.test.ts:generic-api-key:223
+79060c54078485bdc80ed70fc31ef62aa93a91c9:setup/channels/run-channel-skill.test.ts:generic-api-key:50
+79060c54078485bdc80ed70fc31ef62aa93a91c9:setup/channels/run-channel-skill.test.ts:generic-api-key:218
+d997d545cc330513ee7154b2c12d17fff7072aab:scripts/skill-directives.test.ts:generic-api-key:224
+d997d545cc330513ee7154b2c12d17fff7072aab:.claude/skills/add-discord/SKILL.md:generic-api-key:93
+d997d545cc330513ee7154b2c12d17fff7072aab:scripts/skill-apply.test.ts:generic-api-key:346
+f387d371fd21bd55f93d9aa0549775c34af75807:.claude/skills/add-slack/SKILL.md:curl-auth-user:146
+1d73b2986a891629a7e220ae4668d7d8b1acf5e8:.claude/skills/migrate-from-v1/SKILL.md:discord-client-id:49
+8412b899fa4ce53b893076f4b2037a103ecaebc1:setup/lib/diagnostics.ts:generic-api-key:13
+8412b899fa4ce53b893076f4b2037a103ecaebc1:setup/lib/diagnostics.sh:generic-api-key:13
+96dd77c911d2b5536730cc54d265c20a94fc33d1:setup/migrate.ts:discord-client-id:243
+426ae0285ef652efdd1a8267b0fea764849f4526:.claude/skills/migrate-nanoclaw/diagnostics.md:generic-api-key:16
+f97394656c7c358edd495b1ea133a7eb00c3e2e4:.claude/skills/update-nanoclaw/diagnostics.md:generic-api-key:23
+f97394656c7c358edd495b1ea133a7eb00c3e2e4:.claude/skills/setup/diagnostics.md:generic-api-key:20
+f04a8955aa0b90c70a0408661c0a387c76eb07e9:scripts/send-diagnostics.ts:generic-api-key:24

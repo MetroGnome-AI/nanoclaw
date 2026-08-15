@@ -1,0 +1,11 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "chillx-hal",
+  "version": "1.0.0",
+  "description": "HAL — CHILLX Chillers infrastructure/operations persona: mirror-first ERPNext reads, erp-svc writes, lead/quote/docs/add-item/sales-analysis skills, Voice-HAL call-me.",
+  "extensions": {
+    "ai.nanoco.nanoclaw": {
+      "agentName": "HAL"
+    }
+  }
+}

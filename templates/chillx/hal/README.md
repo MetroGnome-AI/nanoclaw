@@ -8,13 +8,20 @@ Stamp with:
 
 ```bash
 ./bin/ncl groups create --template chillx/hal --name "HAL"
+
+Agent Plugins 1.0.0 layout (since 2026-08-15): `plugin.json` at the root is the
+discovery marker; the persona lives under `ai.nanoco.nanoclaw/context/`. Note that
+HAL groups stamped before this date were created by the pre-plugin path and carry
+no `plugins/` marker, so a `--template` call will NOT restamp them in place — it
+would mint a new group. Target the existing group explicitly with `--id`, or
+keep it hand-managed.
 ```
 
 ## What's inside
 
 | Path | Purpose |
 |------|---------|
-| `context/instructions.md` | Persona: senior-ops voice (HAL 9000 delivery, none of the sinister traits), hard rules, capabilities. The "Dave" address convention is a clearly-marked standing gag — one paragraph, trivially removable. |
+| `ai.nanoco.nanoclaw/context/instructions.md` | Persona: senior-ops voice (HAL 9000 delivery, none of the sinister traits), hard rules, capabilities. The "Dave" address convention is a clearly-marked standing gag — one paragraph, trivially removable. |
 | `skills/lead/` | ERPNext Lead create/enrich (dedup, equipment tags) |
 | `skills/docs/` | Business docs + canonical profile facts (see degradations) |
 | `skills/add-item/` | New ERPNext Item + Item Prices with CHILLX defaults |

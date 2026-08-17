@@ -64,8 +64,8 @@ const SWEEP_INTERVAL_MS = 60_000;
 // Absolute idle ceiling for a running container. If the heartbeat file hasn't
 // been touched in this long, the container is either stuck or doing genuinely
 // nothing — kill and restart on the next inbound.
-// CHILLX customization — upstream PR candidate: configurable idle ceiling.
-// NANOCLAW_IDLE_CEILING_MS (integer ms) overrides via env or .env; default 30 min.
+// Configurable via NANOCLAW_IDLE_CEILING_MS (integer milliseconds, read from
+// the process environment or .env). Unset or invalid values keep the default.
 const idleCeilingRaw =
   process.env.NANOCLAW_IDLE_CEILING_MS || readEnvFile(['NANOCLAW_IDLE_CEILING_MS']).NANOCLAW_IDLE_CEILING_MS;
 export const ABSOLUTE_CEILING_MS =

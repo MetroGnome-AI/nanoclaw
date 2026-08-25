@@ -7,6 +7,7 @@ This fork maintains as few source modifications as possible. Every carried patch
 | File | What it changes | Why | Upstream PR |
 |------|-----------------|-----|------------|
 | `src/host-sweep.ts` | Container idle-ceiling timeout is now configurable via the `NANOCLAW_IDLE_CEILING_MS` environment variable (integer milliseconds, default 30 minutes), read from either the process environment or the `.env` file. The validation accepts only positive integers; invalid or unset values fall back to the default. | The 30-minute hardcoded absolute idle ceiling is unsuitable for deployments where agents legitimately sit idle longer or should be reaped sooner. Making it tunable per-deployment enables production flexibility. | Offered upstream (draft prepared, not yet filed) |
+| `src/delivery.ts`, `src/channels/adapter.ts`, `src/channels/channel-registry.ts`, `src/channels/whatsapp.ts` | Per-agent sender label: delivery resolves the sending agent's label (container config `assistant_name`, else group name) and passes it as `OutboundMessage.senderLabel`; the WhatsApp adapter in shared mode prefixes outgoing text with that label instead of the install-wide `ASSISTANT_NAME`, and recognises any agent's label as a self-echo. | Several agents wired to one shared WhatsApp number were all labelled with the single `ASSISTANT_NAME`, so the reader could not tell which agent answered. | to open (MetroGnome-AI/nanoclaw → nanocoai/nanoclaw) |
 
 ## Not patches
 
@@ -16,7 +17,7 @@ The following additions are not patches to upstream source; they are re-applied 
 
 These files are upstream's own code copied in by upstream's installer skills:
 
-- `src/channels/whatsapp.ts` — WhatsApp channel adapter (upstream skill re-applied via `/add-whatsapp`)
+- `src/channels/whatsapp.ts` — WhatsApp channel adapter (upstream skill re-applied via `/add-whatsapp`; NOTE: also carries the sender-label patch above — re-apply it after the skill re-install)
 - `src/channels/whatsapp-registration.test.ts` — WhatsApp adapter test (upstream skill re-applied)
 - `src/channels/index.ts` (import line) — Channel registry entry (upstream skill re-applied)
 - `tools/clidash/` (entire directory) — Dashboard tool with configuration, public assets, tests (upstream skill re-applied via `/add-clidash`)

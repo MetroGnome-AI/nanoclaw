@@ -30,6 +30,7 @@
  *        claimed a message and went quiet past tolerance since the claim."
  */
 import fs from 'fs';
+import { readEnvFile } from './env.js';
 
 import { getSessionClaim } from './db/coordination.js';
 import { getSession, isTaskThread, updateSession } from './db/sessions.js';
@@ -44,7 +45,14 @@ import type { ContainerState, InboundMailbox, OutboundMailbox } from './mailbox/
 // Absolute idle ceiling for a running container. If the heartbeat file hasn't
 // been touched in this long, the container is either stuck or doing genuinely
 // nothing — kill and restart on the next inbound.
-export const ABSOLUTE_CEILING_MS = 30 * 60 * 1000;
+// Configurable via NANOCLAW_IDLE_CEILING_MS (integer milliseconds, read from the
+// process environment or .env). Unset or invalid values keep the default. (Fork patch.)
+const idleCeilingRaw =
+  process.env.NANOCLAW_IDLE_CEILING_MS || readEnvFile(['NANOCLAW_IDLE_CEILING_MS']).NANOCLAW_IDLE_CEILING_MS;
+export const ABSOLUTE_CEILING_MS =
+  idleCeilingRaw && Number.isInteger(Number(idleCeilingRaw)) && Number(idleCeilingRaw) > 0
+    ? Number(idleCeilingRaw)
+    : 30 * 60 * 1000;
 // Stuck tolerance window applied per 'processing' claim — "did we see any
 // signs of life since this message was claimed?"
 export const CLAIM_STUCK_MS = 60 * 1000;
